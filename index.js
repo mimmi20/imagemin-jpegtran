@@ -1,39 +1,55 @@
-'use strict';
-const execBuffer = require('exec-buffer');
-const isJpg = require('is-jpg');
-const jpegtran = require('jpegtran-bin');
+import fs from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {execa} from 'execa';
+import jpegtran from 'jpegtran-bin';
+import {fileTypeFromBuffer} from 'file-type';
+import {imageDimensionsFromData} from 'image-dimensions';
+import {assertUint8Array} from 'uint8array-extras';
 
-module.exports = options => buf => {
-	options = {...options};
+export default function imageminJpegtran(options = {}) {
+	return async function (data) {
+		assertUint8Array(data);
 
-	if (!Buffer.isBuffer(buf)) {
-		return Promise.reject(new TypeError('Expected a buffer'));
-	}
+		const fileType = await fileTypeFromBuffer(data);
+		if (!fileType || fileType.mime !== 'image/jpeg') {
+			return data;
+		}
 
-	if (!isJpg(buf)) {
-		return Promise.resolve(buf);
-	}
+		const dimensions = imageDimensionsFromData(data);
+		if (dimensions?.width === 0 && dimensions?.height === 0) {
+			return data;
+		}
 
-	const args = ['-copy', 'none'];
+		const arguments_ = ['-copy', 'none'];
 
-	if (options.progressive) {
-		args.push('-progressive');
-	}
+		if (options.progressive) {
+			arguments_.push('-progressive');
+		}
 
-	if (options.arithmetic) {
-		args.push('-arithmetic');
-	} else {
-		args.push('-optimize');
-	}
+		if (options.arithmetic) {
+			arguments_.push('-arithmetic');
+		} else {
+			arguments_.push('-optimize');
+		}
 
-	args.push('-outfile', execBuffer.output, execBuffer.input);
+		const inputPath = path.join(tmpdir(), `input-${randomUUID()}.jpg`);
+		const outputPath = path.join(tmpdir(), `output-${randomUUID()}.jpg`);
 
-	return execBuffer({
-		input: buf,
-		bin: jpegtran,
-		args
-	}).catch(error => {
-		error.message = error.stderr || error.message;
-		throw error;
-	});
-};
+		arguments_.push('-outfile', outputPath, inputPath);
+
+		await fs.writeFile(inputPath, data);
+
+		try {
+			await execa(jpegtran, arguments_);
+			return await fs.readFile(outputPath);
+		} finally {
+			// Clean up temporary files
+			await Promise.all([
+				fs.unlink(inputPath).catch(() => {}),
+				fs.unlink(outputPath).catch(() => {}),
+			]);
+		}
+	};
+}
