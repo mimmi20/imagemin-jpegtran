@@ -4,8 +4,8 @@
 
 ## Install
 
-```
-$ npm install --save imagemin-jpegtran
+```shell
+npm install --save imagemin-jpegtran
 ```
 
 ## Usage
@@ -15,14 +15,14 @@ const imagemin = require('imagemin');
 const imageminJpegtran = require('imagemin-jpegtran');
 
 (async () => {
-	await imagemin(['images/*.jpg'], {
-		destination: 'build/images',
-		plugins: [
-			imageminJpegtran()
-		]
-	});
+  await imagemin(['images/*.jpg'], {
+    destination: 'build/images',
+    plugins: [
+      imageminJpegtran()
+    ]
+  });
 
-	console.log('Images optimized');
+  console.log('Images optimized');
 })();
 ```
 
@@ -48,7 +48,7 @@ Lossless conversion to progressive.
 Type: `boolean`\
 Default: `false`
 
-Use [arithmetic coding](http://en.wikipedia.org/wiki/Arithmetic_coding).
+Use [arithmetic coding](https://en.wikipedia.org/wiki/Arithmetic_coding).
 
 #### buffer
 
